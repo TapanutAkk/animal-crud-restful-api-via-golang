@@ -3,6 +3,7 @@ package utils
 import (
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,36 +15,51 @@ type AnimalClaims struct {
 }
 
 func getSecretKey() ([]byte, error) {
-    // ดึงค่า SECRET key จาก Environment (ซึ่งถูกโหลดแล้วโดย main.go init())
     secret := os.Getenv("JWT_SECRET")
     if secret == "" {
-        // ใช้ log.Fatal จะหยุดโปรแกรมทันที
         log.Fatal("FATAL: JWT_SECRET not found. Please check your .env file.")
-        // หรือ return error 
-        // return nil, fmt.Errorf("JWT_SECRET is missing")
     }
     return []byte(secret), nil
 }
 
-func GenerateToken(userID uint) (string, error) {
-	jwtSecret, err := getSecretKey()
+func GenerateTokenPair(userID uint) (accessToken string, refreshToken string, err error) {
+    jwtSecret, err := getSecretKey()
     if err != nil {
-        return "", err
+        return "", "", err
     }
 
-	expirationTime := time.Now().Add(24 * time.Hour)
-	
-	claims := &AnimalClaims{
-		UserID: userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
+    accessExpMinutes, _ := strconv.Atoi(os.Getenv("ACCESS_TOKEN_EXPIRY_MINUTES"))
+    refreshExpHours, _ := strconv.Atoi(os.Getenv("REFRESH_TOKEN_EXPIRY_HOURS"))
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtSecret)
-	return tokenString, err
+    accessExpiry := time.Now().Add(time.Duration(accessExpMinutes) * time.Minute)
+    accessClaims := &AnimalClaims{
+        UserID: userID,
+        RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(accessExpiry),
+            IssuedAt:  jwt.NewNumericDate(time.Now()),
+            Audience:  jwt.ClaimStrings{"access"}, 
+        },
+    }
+    accessToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).SignedString(jwtSecret)
+    if err != nil {
+        return "", "", err
+    }
+
+    refreshExpiry := time.Now().Add(time.Duration(refreshExpHours) * time.Hour)
+    refreshClaims := &AnimalClaims{
+        UserID: userID,
+        RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(refreshExpiry),
+            IssuedAt:  jwt.NewNumericDate(time.Now()),
+            Audience:  jwt.ClaimStrings{"refresh"}, 
+        },
+    }
+    refreshToken, err = jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString(jwtSecret)
+    if err != nil {
+        return "", "", err
+    }
+
+    return accessToken, refreshToken, nil
 }
 
 func ValidateToken(tokenString string) (*AnimalClaims, error) {
@@ -51,7 +67,7 @@ func ValidateToken(tokenString string) (*AnimalClaims, error) {
     if err != nil {
         return nil, err
     }
-	
+
 	claims := &AnimalClaims{}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
