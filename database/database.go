@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -42,6 +43,7 @@ func Connect() {
     DB.AutoMigrate(&models.Animal{})
 
     seedAnimals()
+    seedUsers();
 }
 
 func seedAnimals() {
@@ -88,5 +90,32 @@ func seedAnimals() {
         fmt.Printf("Database seeded with %d initial unique Animal data entries.\n", len(animals))
     } else {
         fmt.Println("Animal table already has data, skipping seeding.")
+    }
+}
+
+func seedUsers() {
+    var count int64
+    DB.Model(&models.User{}).Count(&count)
+
+    if count == 0 {
+        plainPassword := "password123" 
+
+        hashedPassword, err := bcrypt.GenerateFromPassword([]byte(plainPassword), bcrypt.DefaultCost)
+        if err != nil {
+            log.Fatalf("Failed to hash password for seeding: %v", err)
+            return
+        }
+
+        user := models.User{
+            Username: "admin",
+            Password: string(hashedPassword),
+        }
+
+        if err := DB.Create(&user).Error; err != nil {
+            log.Printf("Could not seed user %s: %v", user.Username, err)
+        }
+        fmt.Println("Database seeded with initial User data: admin/password123.")
+    } else {
+        fmt.Println("User table already has data, skipping user seeding.")
     }
 }
