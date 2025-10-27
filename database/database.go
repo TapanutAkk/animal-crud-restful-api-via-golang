@@ -2,6 +2,7 @@ package database
 
 import (
 	"animal-crud-api/models"
+	"animal-crud-api/utils"
 	"fmt"
 	"log"
 	"os"
@@ -39,4 +40,53 @@ func Connect() {
     fmt.Println("Connected to database successfully!")
 
     DB.AutoMigrate(&models.Animal{})
+
+    seedAnimals()
+}
+
+func seedAnimals() {
+    var count int64
+    DB.Model(&models.Animal{}).Count(&count)
+
+    if count == 0 {
+        numToSeed := 10
+        var animals []models.Animal
+        
+        usedNames := make(map[string]bool) 
+
+        for i := 0; i < numToSeed; i++ {
+            var name string
+            
+            for {
+                name = utils.RandomName()
+                if !usedNames[name] {
+                    usedNames[name] = true
+                    break
+                }
+                if len(usedNames) == len(utils.AnimalNames) {
+                    break 
+                }
+            }
+            
+            species := utils.RandomSpecies()
+            age := utils.RandomAge()
+
+            animal := models.Animal{
+                Name:    name,
+                Species: species,
+                Age:     age,
+            }
+            animals = append(animals, animal)
+        }
+        
+        for _, animal := range animals {
+            if err := DB.Create(&animal).Error; err != nil {
+                log.Printf("Could not seed animal %s: %v", animal.Name, err)
+            }
+        }
+
+        fmt.Printf("Database seeded with %d initial unique Animal data entries.\n", len(animals))
+    } else {
+        fmt.Println("Animal table already has data, skipping seeding.")
+    }
 }
