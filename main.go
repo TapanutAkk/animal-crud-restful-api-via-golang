@@ -20,11 +20,14 @@ func main() {
 
 	r := gin.Default()
 
-    r.POST("/animals", controllers.CreateAnimal)
-    r.GET("/animals", controllers.FindAnimals)
-    r.GET("/animals/:id", controllers.FindAnimal)
-    r.PUT("/animals/:id", controllers.UpdateAnimal)
-    r.DELETE("/animals/:id", controllers.DeleteAnimal)
+	api := r.Group("/api")
+    {
+		api.POST("/animals", controllers.CreateAnimal)
+        api.GET("/animals", controllers.FindAnimals)
+        api.GET("/animals/:id", controllers.FindAnimal)
+        api.PUT("/animals/:id", controllers.UpdateAnimal)
+        api.DELETE("/animals/:id", controllers.DeleteAnimal)
+	}
 
     port := os.Getenv("APP_PORT")
 	if port == "" {
