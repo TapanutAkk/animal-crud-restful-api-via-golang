@@ -40,7 +40,7 @@ func Connect() {
 
     fmt.Println("Connected to database successfully!")
 
-    DB.AutoMigrate(&models.Animal{})
+    DB.AutoMigrate(&models.Animal{}, &models.User{})
 
     seedAnimals()
     seedUsers();

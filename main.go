@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +27,7 @@ func Login(c *gin.Context) {
     var req LoginRequest
 
     if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password are required"})
+        c.JSON(http.StatusBadRequest, gin.H{"error": "username and password are required"})
         return
     }
 
@@ -36,17 +37,21 @@ func Login(c *gin.Context) {
 
     if result.Error != nil {
         if result.Error == gorm.ErrRecordNotFound {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username"})
             return
         }
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
         return
     }
 
-    // 3. ตรวจสอบรหัสผ่าน
-    // ⚠️ ในแอปพลิเคชันจริง: ให้ใช้ bcrypt.CompareHashAndPassword(user.Password, req.Password)
-    if user.Password != req.Password {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+    err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+    
+    if err != nil {
+        if err == bcrypt.ErrMismatchedHashAndPassword {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal error during password verification"})
         return
     }
 
