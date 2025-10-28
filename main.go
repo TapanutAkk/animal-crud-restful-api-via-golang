@@ -4,20 +4,58 @@ import (
 	"animal-crud-api/controllers"
 	"animal-crud-api/database"
 	"animal-crud-api/middlewares"
+	"animal-crud-api/models"
 	"animal-crud-api/utils"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
-func Login(c *gin.Context) {
-    userID := uint(1)
+type LoginRequest struct {
+    Username string `json:"username" binding:"required"`
+    Password string `json:"password" binding:"required"`
+}
 
-	accessToken, refreshToken, err := utils.GenerateTokenPair(userID)
+func Login(c *gin.Context) {
+    var req LoginRequest
+
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "username and password are required"})
+        return
+    }
+
+    var user models.User
+
+    result := database.DB.Where("username = ?", req.Username).First(&user)
+
+    if result.Error != nil {
+        if result.Error == gorm.ErrRecordNotFound {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+        return
+    }
+
+    err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+    
+    if err != nil {
+        if err == bcrypt.ErrMismatchedHashAndPassword {
+            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username or password"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal error during password verification"})
+        return
+    }
+
+	accessToken, refreshToken, err := utils.GenerateTokenPair(user.ID)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate tokens"})
         return

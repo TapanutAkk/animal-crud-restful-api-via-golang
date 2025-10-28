@@ -24,5 +24,5 @@ go mod tidy
 
 ## Run Server
 ```bash
-go run main.go
+air
 ```

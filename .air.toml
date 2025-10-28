@@ -1,0 +1,14 @@
+cmd = "go run main.go"
+
+watch_dir = "." 
+
+ignore_dir = [
+    ".git",
+    "bin",
+]
+
+include_ext = ["go", "tpl", "html", "env"]
+
+delay = 500 
+
+clear = true
